@@ -48,7 +48,7 @@ Para ejecutar la aplicación, sigue los siguientes pasos:
 
 2. Navega al directorio del proyecto:
    
-```cd EqC_DespliegueModelosPython/EqC_Despliegue/Pages```
+```cd EqC_Despliegue/Pages```
 
 3. Ejecuta la aplicación de Streamlit:
 
