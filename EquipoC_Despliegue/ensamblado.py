@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split, GridSearchCV, TimeSeriesSplit
 from sklearn.feature_selection import mutual_info_regression, SelectKBest, f_regression
@@ -10,29 +9,21 @@ from keras.models import Sequential
 from keras.layers import LSTM, Dense, Dropout
 from sklearn.metrics import mean_absolute_percentage_error, mean_squared_error
 import datetime
+import matplotlib.pyplot as plt
 
 # Función para limpiar datos
 def clean_data(data):
-    """
-    Elimina filas con valores faltantes en el conjunto de datos.
-    """
     data = data.dropna()
     return data
 
 # Función para normalizar datos
 def normalize_data(data):
-    """
-    Normaliza los datos en el rango [0, 1].
-    """
     scaler = MinMaxScaler()
     data_scaled = scaler.fit_transform(data)
     return pd.DataFrame(data_scaled, columns=data.columns), scaler
 
 # Función para seleccionar las mejores características
 def select_features(X, y, num_features):
-    """
-    Selecciona las mejores características utilizando información mutua y la prueba F.
-    """
     mutual_info = mutual_info_regression(X, y)
     k_best = SelectKBest(score_func=f_regression, k=num_features).fit(X, y)
     features = X.columns[k_best.get_support(indices=True)]
@@ -40,9 +31,6 @@ def select_features(X, y, num_features):
 
 # Función para entrenar un modelo LSTM
 def train_lstm(X_train, y_train, input_shape):
-    """
-    Entrena un modelo LSTM con los datos de entrenamiento.
-    """
     model = Sequential()
     model.add(LSTM(units=50, return_sequences=True, input_shape=input_shape))
     model.add(Dropout(0.2))
@@ -55,9 +43,6 @@ def train_lstm(X_train, y_train, input_shape):
 
 # Función para optimizar el modelo SVM
 def optimize_svm(X_train, y_train):
-    """
-    Optimiza un modelo SVM utilizando GridSearchCV.
-    """
     param_grid = {'C': [0.1, 1, 10], 'gamma': [1, 0.1, 0.01]}
     grid = GridSearchCV(SVR(), param_grid, refit=True, cv=5)
     grid.fit(X_train, y_train)
@@ -65,9 +50,6 @@ def optimize_svm(X_train, y_train):
 
 # Función para plotear las predicciones
 def plot_forecast(dates_test, y_test, svm_predictions, lstm_predictions, combined_predictions):
-    """
-    Grafica las predicciones junto con los valores reales.
-    """
     fig, ax = plt.subplots(figsize=(12, 6))
     ax.plot(dates_test, y_test, label='Precio Real')
     ax.plot(dates_test, svm_predictions, label='Predicciones SVM')
@@ -79,10 +61,21 @@ def plot_forecast(dates_test, y_test, svm_predictions, lstm_predictions, combine
     ax.legend()
     st.pyplot(fig)
 
+    st.write("""
+    En el gráfico anterior, se muestran tres series de datos:
+
+    - **Precio Real:** Estos son los precios de cierre reales de las acciones para el período de prueba.
+    - **Predicciones SVM:** Estas son las predicciones del modelo de Máquinas de Vectores de Soporte (SVM). Este modelo es muy efectivo para encontrar patrones complejos en los datos.
+    - **Predicciones LSTM:** Estas son las predicciones del modelo de Long Short-Term Memory (LSTM). Las LSTM son un tipo de red neuronal recurrente que se especializa en datos secuenciales, como las series temporales.
+    - **Predicciones Combinadas:** Estas predicciones son la mediana de las predicciones SVM y LSTM, lo que ayuda a reducir el error de predicción combinando la fortaleza de ambos modelos.
+    """)
+
+
 # Función para generar predicciones y métricas
 def generate_predictions(ticker, start_date, end_date):
     """
     Genera predicciones utilizando modelos SVM y LSTM entrenados y devuelve métricas de evaluación.
+    Además, predice la tendencia (subida o bajada) del precio para mañana.
     """
     # Convertir las fechas a timestamps
     start_date_timestamp = int(datetime.datetime.combine(start_date, datetime.datetime.min.time()).timestamp())
@@ -130,6 +123,23 @@ def generate_predictions(ticker, start_date, end_date):
     lstm_predictions = pd.Series(lstm_model.predict(X_test_lstm).flatten(), index=X_test.index)
     combined_predictions = pd.Series(np.median([svm_predictions, lstm_predictions], axis=0), index=X_test.index)
 
+    # Calcular las predicciones para mañana
+    last_close_price = data.iloc[-1]['Close']  # Precio de cierre más reciente
+    tomorrow_features = X_test.iloc[-1].values.reshape(1, -1)  # Características para mañana
+
+    # Predicción LSTM para mañana
+    tomorrow_features_reshaped = tomorrow_features.reshape(1, 1, tomorrow_features.shape[1])
+    lstm_prediction_tomorrow = lstm_model.predict(tomorrow_features_reshaped)[0][0]
+
+    # Determinar si se espera que el precio suba o baje mañana y por cuánto
+    price_change = lstm_prediction_tomorrow - last_close_price
+    if lstm_prediction_tomorrow > last_close_price:
+        tomorrow_trend = f"subida de {price_change:.2f}"
+    elif lstm_prediction_tomorrow < last_close_price:
+        tomorrow_trend = f"bajada de {price_change:.2f}"
+    else:
+        tomorrow_trend = "sin cambio"
+
     # Calcular métricas de evaluación
     mape_svm = mean_absolute_percentage_error(y_test, svm_predictions)
     mape_lstm = mean_absolute_percentage_error(y_test, lstm_predictions)
@@ -141,7 +151,8 @@ def generate_predictions(ticker, start_date, end_date):
     return (svm_predictions, lstm_predictions, combined_predictions,
             mape_svm, mape_lstm, mape_combined,
             rmse_svm, rmse_lstm, rmse_combined,
-            dates_test, y_test)
+            dates_test, y_test, tomorrow_trend)
+
 
 # Función para mostrar la página de ensamblado
 def mostrar_pagina_ensamblado():
@@ -160,78 +171,48 @@ def mostrar_pagina_ensamblado():
     # Entrada de usuario para el ticker del instrumento financiero
     ticker = st.text_input("Ticker del instrumento financiero", value='FSM')
     # Entrada de usuario para las fechas de inicio y fin
-    start_date = st.date_input("Fecha de inicio", value=pd.to_datetime('2021-01-01'))
-    end_date = st.date_input("Fecha de fin", value=pd.to_datetime('2021-08-11'))
+    start_date = st.date_input("Fecha de inicio", value=datetime.date(2022, 1, 1))
+    end_date = st.date_input("Fecha de fin", value=datetime.date(2023, 8, 11))
 
     # Botón para ejecutar el análisis
     if st.button("Ejecutar Análisis"):
-        svm_predictions, lstm_predictions, combined_predictions, mape_svm, mape_lstm, mape_combined, rmse_svm, rmse_lstm, rmse_combined, dates_test, y_test = generate_predictions(ticker, start_date, end_date)
+        (svm_predictions, lstm_predictions, combined_predictions, mape_svm, 
+        mape_lstm, mape_combined, rmse_svm, rmse_lstm, rmse_combined, 
+        dates_test, y_test, tomorrow_trend) = generate_predictions(ticker, start_date, end_date)
 
         # Mostrar métricas de evaluación
         st.write("### Métricas de evaluación")
-        st.write(f'MAPE (Mean Absolute Percentage Error) del modelo SVM: {mape_svm}')
-        st.write(f'MAPE (Mean Absolute Percentage Error) del modelo LSTM: {mape_lstm}')
-        st.write(f'MAPE (Mean Absolute Percentage Error) del modelo combinado: {mape_combined}')
-        st.write(f'RMSE (Root Mean Squared Error) del modelo SVM: {rmse_svm}')
-        st.write(f'RMSE (Root Mean Squared Error) del modelo LSTM: {rmse_lstm}')
-        st.write(f'RMSE (Root Mean Squared Error) del modelo combinado: {rmse_combined}')
+        st.write(f'MAPE (Mean Absolute Percentage Error) del modelo SVM: {mape_svm:.2f}')
+        st.write(f'MAPE (Mean Absolute Percentage Error) del modelo LSTM: {mape_lstm:.2f}')
+        st.write(f'MAPE (Mean Absolute Percentage Error) del modelo combinado: {mape_combined:.2f}')
+        st.write(f'RMSE (Root Mean Squared Error) del modelo SVM: {rmse_svm:.2f}')
+        st.write(f'RMSE (Root Mean Squared Error) del modelo LSTM: {rmse_lstm:.2f}')
+        st.write(f'RMSE (Root Mean Squared Error) del modelo combinado: {rmse_combined:.2f}')
 
         # Mostrar predicciones numéricas en un DataFrame
         st.write("### Predicciones numéricas")
-        st.write("""
-        En esta tabla, se muestran las predicciones generadas por los modelos junto con los valores reales. 
-        Esto permite comparar directamente cuánto difieren las predicciones de los valores reales.
-        """)
-        predictions_df = pd.DataFrame({'Actual': y_test, 'SVM Predicted': svm_predictions, 'LSTM Predicted': lstm_predictions, 'Combined Predicted': combined_predictions})
-                # Mostrar predicciones numéricas en un DataFrame
+        predictions_df = pd.DataFrame({'Actual': y_test, 'SVM Predicted': svm_predictions, 
+                                       'LSTM Predicted': lstm_predictions, 'Combined Predicted': combined_predictions})
         st.dataframe(predictions_df)
 
         # Graficar las predicciones junto con los valores reales
         st.write("### Gráfico de Predicciones")
-        st.write("""
-        El siguiente gráfico muestra los valores reales y las predicciones realizadas por los modelos SVM, LSTM y el modelo combinado. 
-        Este gráfico ayuda a visualizar el desempeño de cada modelo y ver cómo de cerca las predicciones siguen la tendencia de los datos reales.
-        """)
         plot_forecast(dates_test, y_test, svm_predictions, lstm_predictions, combined_predictions)
 
-        # Recomendación basada en los resultados
-        st.write("### Recomendación")
-        st.write("""
-        **Recomendación:** Basado en los resultados obtenidos y el desempeño de los modelos, se recomienda utilizar el modelo combinado para tomar decisiones financieras, 
-        ya que tiende a proporcionar predicciones más precisas al aprovechar las fortalezas de ambos modelos, SVM y LSTM.
-        """)
+        # Mostrar la predicción de tendencia para mañana
+        st.write("### Predicción de tendencia para mañana")
+        st.write(f"Se espera que el precio de mañana tenga una tendencia de {tomorrow_trend}.")
+        if "subida" in tomorrow_trend or "bajada" in tomorrow_trend:
+            st.write(f"Se espera que el precio cambie aproximadamente {tomorrow_trend.split('de')[1].strip()} unidades.")
 
-
-# Función para mostrar la página de SVM
-def mostrar_pagina_svm():
-    st.title("Página de SVM")
-    st.write("""
-    En esta sección se ejecuta el modelo SVM para predecir los precios futuros de un instrumento financiero.
-    Ingrese los detalles del instrumento financiero y las fechas de análisis para continuar.
-    """)
-    
-    # Aquí puedes implementar la lógica específica para la página de SVM
-
-# Función para mostrar la página de LSTM
-def mostrar_pagina_lstm():
-    st.title("Página de LSTM")
-    st.write("""
-    En esta sección se ejecuta el modelo LSTM para predecir los precios futuros de un instrumento financiero.
-    Ingrese los detalles del instrumento financiero y las fechas de análisis para continuar.
-    """)
-    # Aquí puedes implementar la lógica específica para la página de LSTM
-
-# Función principal para la interfaz de usuario
+# Función principal para la aplicación Streamlit
 def main():
-    st.sidebar.title('Menú')
     pages = {
-        "Ensamblado": mostrar_pagina_ensamblado,
-        "SVM": mostrar_pagina_svm,
-        "LSTM": mostrar_pagina_lstm
+        "Modelo ensamblado": mostrar_pagina_ensamblado,
     }
-    selection = st.sidebar.radio("Selecciona una página", list(pages.keys()))
+    st.sidebar.title("Navegación")
+    selection = st.sidebar.radio("Seleccione una página:", list(pages.keys()))
     pages[selection]()
 
 if __name__ == "__main__":
     main()
-

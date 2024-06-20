@@ -28,8 +28,8 @@ def load_data(ticker, start_date, end_date):
     
     return data, data_scaled
 
-# Función para entrenar el modelo
-def train_model(data_scaled, target_column_name):
+# Función para entrenar el modelo SVR
+def train_model_svr(data_scaled, target_column_name):
     target_corr = data_scaled.corr()[target_column_name].abs().sort_values(ascending=False)
     relevant_features = target_corr[target_corr > 0.1].index.tolist()
     data_relevant = data_scaled[relevant_features]
@@ -42,23 +42,23 @@ def train_model(data_scaled, target_column_name):
     
     return model, data_relevant
 
-# Función para predecir y mostrar resultados
-def show_predictions(model, data_relevant, target_column_name):
+# Función para predecir y mostrar resultados para SVR
+def show_regression_predictions(model, data_relevant, target_column_name):
     X = data_relevant.drop(columns=[target_column_name])
     y_true = data_relevant[target_column_name]
     y_pred = model.predict(X)
     
-    st.write("### Predicciones numéricas")
+    st.write("### Predicciones numéricas (Modelo SVR)")
     st.write("""
-    En esta tabla, se muestran las predicciones generadas por el modelo junto con los valores reales. 
+    En esta tabla, se muestran las predicciones generadas por el modelo SVR junto con los valores reales. 
     Esto permite comparar directamente cuánto difieren las predicciones de los valores reales.
     """)
     predictions_df = pd.DataFrame({'Actual': y_true, 'Predicted': y_pred})
     st.dataframe(predictions_df)
     
-    st.write("### Gráfico de Predicciones")
+    st.write("### Gráfico de Predicciones (Modelo SVR)")
     st.write("""
-    El siguiente gráfico muestra los valores reales y las predicciones realizadas por el modelo. 
+    El siguiente gráfico muestra los valores reales y las predicciones realizadas por el modelo SVR. 
     Este gráfico ayuda a visualizar el desempeño del modelo y ver cómo de cerca las predicciones siguen la tendencia de los datos reales.
     """)
     plt.figure(figsize=(10, 5))
@@ -67,23 +67,22 @@ def show_predictions(model, data_relevant, target_column_name):
     plt.legend()
     st.pyplot(plt)
     
-    st.write("### Recomendación")
+    st.write("### Recomendación (Modelo SVR)")
     st.write("""
-    **Recomendación:** Basado en los resultados obtenidos, es recomendable realizar un análisis más profundo de los datos históricos y considerar el uso de otros modelos o ajustar los parámetros del modelo actual para mejorar la precisión de las predicciones. 
-    También es importante complementar estos análisis con conocimientos financieros adicionales y un contexto de mercado actual.
+    **Recomendación:** Basado en los resultados obtenidos con el modelo SVR, se sugiere realizar un análisis más profundo considerando otros modelos o ajustando los parámetros para mejorar la precisión de las predicciones. 
+    También es crucial complementar estos análisis con un contexto financiero más amplio y actualizado.
     """)
 
 def mostrar_pagina_svm():
-    st.title("Modelo SVR")
+    st.title("Análisis Predictivo de Instrumentos Financieros con SVR")
     
     st.write("""
-    A continuación se puede visualizar el uso del modelo de Support Vector Regression (SVR) que permite analizar los precios históricos de un instrumento financiero y realizar predicciones . 
+    En esta aplicación, se utiliza Support Vector Regression (SVR) para realizar análisis predictivo sobre los precios de cierre de instrumentos financieros.
     """)
     
-    ticker = st.text_input("Ticker del instrumento financiero", value='FSM')
-    start_date = st.date_input("Fecha de inicio", value=pd.to_datetime('2021-01-01'))
-    end_date = st.date_input("Fecha de fin", value=pd.to_datetime('2021-08-11'))
-    target_column_name = 'Close'
+    ticker = st.text_input("Ticker del Instrumento Financiero", value='AAPL')
+    start_date = st.date_input("Fecha de Inicio", value=datetime.datetime(2021, 1, 1))
+    end_date = st.date_input("Fecha de Fin", value=datetime.datetime(2021, 8, 11))
     
     start_date_timestamp = int(datetime.datetime.combine(start_date, datetime.datetime.min.time()).timestamp())
     end_date_timestamp = int(datetime.datetime.combine(end_date, datetime.datetime.min.time()).timestamp())
@@ -93,26 +92,25 @@ def mostrar_pagina_svm():
     if st.button("Ejecutar Análisis"):
         st.write("### Análisis Exploratorio de Datos")
         
-        st.write("#### Precios reales")
-        st.write("En este gráfico, se muestran los precios históricos reales del instrumento financiero seleccionado. Esto ayuda a entender la tendencia general y la volatilidad del instrumento en el período seleccionado.")
+        st.write("#### Precios de Cierre Históricos")
+        st.write("""
+        El siguiente gráfico muestra los precios de cierre históricos del instrumento financiero seleccionado. 
+        Esto ayuda a entender la tendencia general y la volatilidad del precio durante el período seleccionado.
+        """)
         st.line_chart(data['Close'])
         
-        st.write("#### Media móvil de precios reales")
+        st.write("#### Media Móvil de Precios de Cierre")
         st.write("""
-        La media móvil es una técnica utilizada para suavizar las fluctuaciones a corto plazo y destacar las tendencias a largo plazo. 
-        A continuación, se muestra la media móvil de 20 días junto con los precios reales, lo cual puede ayudar a identificar la tendencia general del mercado.
+        La media móvil de 20 días se utiliza para suavizar las fluctuaciones a corto plazo y resaltar las tendencias a largo plazo en los precios de cierre.
         """)
         data['MA'] = data['Close'].rolling(window=20).mean()
         st.line_chart(data[['Close', 'MA']])
         
         st.write("### Predicciones y Resultados")
-        st.write("""
-        En esta sección, se presentan las predicciones realizadas por el modelo de SVR y se comparan con los valores reales. 
-        Esto permite evaluar el desempeño del modelo y su capacidad para predecir los precios futuros del instrumento financiero.
-        """)
         
-        model, data_relevant = train_model(data_scaled, target_column_name)
-        show_predictions(model, data_relevant, target_column_name)
+        st.write("#### Modelo SVR - Predicción de Precio para Mañana")
+        model_svr, data_relevant_svr = train_model_svr(data_scaled, 'Close')
+        show_regression_predictions(model_svr, data_relevant_svr, 'Close')
 
 if __name__ == "__main__":
     mostrar_pagina_svm()

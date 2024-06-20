@@ -6,11 +6,12 @@ st.set_page_config(
     page_icon="👨🏻‍💻",
 )
 
-from ensamblado import mostrar_pagina_ensamblado  # Asegúrate de que el nombre del archivo y la función sean correctos
-from lstm import mostrar_pagina_lstm  # Importa la función de la página LSTM
-from svm import mostrar_pagina_svm  # Importa la función de la página SVM
-from svc import mostrar_pagina_svc  # Importa la función de la página SVC
-from rfr_de_regresion import mostrar_pagina_rfr  # Importa la función de la página RFR
+# Importa las funciones desde los archivos en Pages
+from ensamblado import mostrar_pagina_ensamblado
+from lstm import mostrar_pagina_lstm
+from svr import mostrar_pagina_svm  # Asegúrate de importar la función correcta de svr.py
+from svc import mostrar_pagina_svc
+from rfr_de_regresion import mostrar_pagina_rfr  # Importa directamente desde rfr_de_regresion.py
 
 def mostrar_pagina_inicio():
     st.sidebar.title('Menú')
@@ -45,23 +46,23 @@ def mostrar_pagina_inicio():
         st.markdown(equipo)
         
     elif page == "MODELO ENSAMBLADO":
-        mostrar_pagina_ensamblado()  # Llama directamente a la función
+        mostrar_pagina_ensamblado()
 
     elif page == "MODELO LSTM":
         mostrar_pagina_lstm()
         
     elif page == "MODELO SVR":
-        mostrar_pagina_svm()
+         mostrar_pagina_svm()
     
     elif page == "MODELO RBF":
-        from rbf import mostrar_pagina_rbf  # Importa la función de la página RBF
-        mostrar_pagina_rbf()
+         from rbf import mostrar_pagina_rbf  # Importa la función de la página RBF
+         mostrar_pagina_rbf()
 
     elif page == "MODELO SVC":
-        mostrar_pagina_svc()
+         mostrar_pagina_svc()
     
     elif page == "MODELO RFR":
-        mostrar_pagina_rfr()
+         mostrar_pagina_rfr()
         
 if __name__ == "__main__":
     mostrar_pagina_inicio()

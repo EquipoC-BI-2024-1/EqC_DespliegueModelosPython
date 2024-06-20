@@ -133,6 +133,19 @@ def mostrar_pagina_lstm():
     plt.legend()
     st.pyplot(plt)
 
+    # Predicción del precio para mañana
+    st.write("### Predicción de Precio para Mañana")
+    last_data_point = X_test_lstm[-1]  # Último punto de datos de prueba en formato LSTM
+    prediction_for_tomorrow = lstm_model.predict(np.array([last_data_point]))
+
+    # Invertir la normalización manualmente
+    min_close = scaler.data_min_[-1]  # Min de la columna Close
+    scale_close = scaler.data_range_[-1]  # Rango de la columna Close
+
+    prediction_for_tomorrow_scaled = prediction_for_tomorrow * scale_close + min_close
+
+    st.write(f'El precio predicho para mañana es: {prediction_for_tomorrow_scaled[0, 0]:.2f}')
+
     # Recomendación basada en los resultados
     st.write("### Recomendación")
     st.write("""
@@ -145,4 +158,3 @@ def mostrar_pagina_lstm():
 
 if __name__ == "__main__":
     mostrar_pagina_lstm()
-
